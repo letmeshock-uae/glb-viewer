@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { EffectComposer, EffectPass, RenderPass, BrightnessContrastEffect, HueSaturationEffect, ToneMappingEffect, ToneMappingMode } from 'postprocessing';
+import { EffectComposer, EffectPass, RenderPass, BrightnessContrastEffect, HueSaturationEffect, ToneMappingEffect, ToneMappingMode, LUT3DEffect } from 'postprocessing';
 import { ColorGradingEffect } from './ColorGradingEffect';
 
 export interface RendererConfig {
@@ -39,6 +39,7 @@ export class ViewerRenderer {
     private renderPass: RenderPass | null = null;
 
     private colorGradingPass: EffectPass | null = null;
+    private lutEffect: LUT3DEffect | null = null;
     private brightnessContrastEffect: BrightnessContrastEffect | null = null;
     private hueSaturationEffect: HueSaturationEffect | null = null;
     private toneMappingEffect: ToneMappingEffect | null = null;
@@ -107,8 +108,42 @@ export class ViewerRenderer {
 
         this.toneMappingEffect = new ToneMappingEffect({ mode: this.toneMappingMode });
 
-        this.colorGradingPass = new EffectPass(camera, this.brightnessContrastEffect, this.hueSaturationEffect, this.customColorGradingEffect, this.toneMappingEffect);
-        this.composer.addPass(this.colorGradingPass);
+        this.rebuildEffectsPass(camera);
+    }
+
+    private rebuildEffectsPass(camera: THREE.Camera): void {
+        if (this.colorGradingPass && this.composer) {
+            this.composer.removePass(this.colorGradingPass);
+            this.colorGradingPass.dispose();
+        }
+
+        const effects: any[] = [
+            this.brightnessContrastEffect!,
+            this.hueSaturationEffect!,
+            this.customColorGradingEffect!
+        ];
+
+        // Add LUT effect if a LUT is loaded, before tone mapping
+        if (this.lutEffect) {
+            effects.push(this.lutEffect);
+        }
+
+        effects.push(this.toneMappingEffect!);
+
+        this.colorGradingPass = new EffectPass(camera, ...effects);
+        if (this.composer) {
+            this.composer.addPass(this.colorGradingPass);
+        }
+    }
+
+    public setLUT(lutTexture: THREE.Data3DTexture | THREE.DataTexture | null, camera: THREE.Camera): void {
+        if (!lutTexture) {
+            this.lutEffect = null;
+        } else {
+            this.lutEffect = new LUT3DEffect(lutTexture);
+        }
+
+        this.rebuildEffectsPass(camera);
     }
 
     private onResize(): void {

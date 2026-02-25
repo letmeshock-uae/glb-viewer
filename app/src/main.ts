@@ -160,6 +160,11 @@ class GLBViewer {
   }
 
   private handleLoadResult(result: LoadResult): void {
+    if (result.type === 'lut' && result.lutTexture) {
+      this.renderer.setLUT(result.lutTexture, this.camera.camera);
+      return;
+    }
+
     // Clear previous model
     this.scene.removeModel();
     if (this.mixer) {
@@ -167,32 +172,34 @@ class GLBViewer {
       this.mixer = null;
     }
 
-    console.log('📦 Model object:', result.object);
-    console.log('📦 Model children:', result.object.children?.length);
+    if (result.object) {
+      console.log('📦 Model object:', result.object);
+      console.log('📦 Model children:', result.object.children?.length);
 
-    // Add new model
-    this.scene.addModel(result.object);
+      // Add new model
+      this.scene.addModel(result.object);
 
-    // Update shadows for the new model
-    this.lightsManager.updateShadowsForModel(result.object);
+      // Update shadows for the new model
+      this.lightsManager.updateShadowsForModel(result.object);
 
-    // Add shadow ground plane at the bottom of the model
-    const box = new THREE.Box3().setFromObject(result.object);
-    const modelSize = box.getSize(new THREE.Vector3());
-    this.lightsManager.addShadowGround(box.min.y, Math.max(modelSize.x, modelSize.z) * 3);
+      // Add shadow ground plane at the bottom of the model
+      const box = new THREE.Box3().setFromObject(result.object);
+      const modelSize = box.getSize(new THREE.Vector3());
+      this.lightsManager.addShadowGround(box.min.y, Math.max(modelSize.x, modelSize.z) * 3);
 
-    // Setup animations if any
-    if (result.animations && result.animations.length > 0) {
-      this.currentAnimations = result.animations;
-      this.mixer = new THREE.AnimationMixer(result.object);
+      // Setup animations if any
+      if (result.animations && result.animations.length > 0) {
+        this.currentAnimations = result.animations;
+        this.mixer = new THREE.AnimationMixer(result.object);
 
-      // Play first animation by default
-      const action = this.mixer.clipAction(result.animations[0]);
-      action.play();
+        // Play first animation by default
+        const action = this.mixer.clipAction(result.animations[0]);
+        action.play();
+      }
+
+      // Fit camera to model
+      this.fitToModel();
     }
-
-    // Fit camera to model
-    this.fitToModel();
   }
 
   private fitToModel(): void {
@@ -224,6 +231,7 @@ class GLBViewer {
     this.camera.reset();
     this.controls.reset();
     this.lightsManager.reset();
+    this.renderer.setLUT(null, this.camera.camera);
     if (this.mixer) {
       this.mixer.stopAllAction();
       this.mixer = null;

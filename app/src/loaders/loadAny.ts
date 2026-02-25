@@ -4,33 +4,30 @@ import { loadPLYMesh, type PLYMeshResult } from './loadPLYMesh';
 import { loadSplats, loadSOG, type SplatLoadResult } from './loadSplats';
 import { isPLYSplat } from './detectPLYType';
 
-export type FileType = 'glb' | 'gltf' | 'ply-mesh' | 'ply-splat' | 'sog' | 'unknown';
+export type FileType = 'glb' | 'gltf' | 'ply-mesh' | 'ply-splat' | 'sog' | 'lut' | 'unknown';
 
 export interface LoadResult {
     type: FileType;
-    object: THREE.Object3D;
+    object?: THREE.Object3D;
     animations?: THREE.AnimationClip[];
     cameras?: THREE.Camera[];
+    lutTexture?: THREE.DataTexture | THREE.Data3DTexture;
 }
 
 export function detectFileType(filename: string, data?: ArrayBuffer): FileType {
     const ext = filename.toLowerCase().split('.').pop() || '';
 
-    switch (ext) {
-        case 'glb':
-            return 'glb';
-        case 'gltf':
-            return 'gltf';
-        case 'sog':
-            return 'sog';
-        case 'ply':
-            if (data) {
-                return isPLYSplat(data) ? 'ply-splat' : 'ply-mesh';
-            }
-            return 'ply-mesh'; // Default to mesh if no data available
-        default:
-            return 'unknown';
+    if (ext === 'glb') return 'glb';
+    if (ext === 'gltf') return 'gltf';
+    if (ext === 'sog') return 'sog';
+    if (ext === 'cube' || ext === '3dl') return 'lut';
+    if (ext === 'ply') {
+        if (data) {
+            return isPLYSplat(data) ? 'ply-splat' : 'ply-mesh';
+        }
+        return 'ply-mesh';
     }
+    return 'unknown';
 }
 
 export async function loadAny(
@@ -74,6 +71,31 @@ export async function loadAny(
                 type,
                 object: result.object,
             };
+        }
+
+        case 'lut': {
+            // Dynamically import loaders to keep initial bundle smaller
+            const { LUTCubeLoader } = await import('three/examples/jsm/loaders/LUTCubeLoader.js');
+            const { LUT3dlLoader } = await import('three/examples/jsm/loaders/LUT3dlLoader.js');
+
+            const blob = new Blob([data]);
+            const url = URL.createObjectURL(blob);
+
+            return new Promise((resolve, reject) => {
+                const ext = filename.toLowerCase().split('.').pop() || '';
+                const loader = ext === 'cube' ? new LUTCubeLoader() : new LUT3dlLoader();
+
+                loader.load(url, (result) => {
+                    URL.revokeObjectURL(url);
+                    resolve({
+                        type,
+                        lutTexture: result.texture3D
+                    });
+                }, undefined, (err: unknown) => {
+                    URL.revokeObjectURL(url);
+                    reject(err);
+                });
+            });
         }
 
         default:
