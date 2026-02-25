@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { EffectComposer, EffectPass, RenderPass, BrightnessContrastEffect, HueSaturationEffect, ToneMappingEffect, ToneMappingMode } from 'postprocessing';
+import { ColorGradingEffect } from './ColorGradingEffect';
 
 export interface RendererConfig {
     antialias: boolean;
@@ -9,6 +10,8 @@ export interface RendererConfig {
     castShadow: boolean;
     contrast: number;
     saturation: number;
+    temperature: number;
+    tint: number;
 }
 
 export const defaultRendererConfig: RendererConfig = {
@@ -19,6 +22,8 @@ export const defaultRendererConfig: RendererConfig = {
     castShadow: true,
     contrast: 0.0,
     saturation: 0.0,
+    temperature: 0.0,
+    tint: 0.0,
 };
 
 export class ViewerRenderer {
@@ -31,15 +36,20 @@ export class ViewerRenderer {
     private brightnessContrastEffect: BrightnessContrastEffect | null = null;
     private hueSaturationEffect: HueSaturationEffect | null = null;
     private toneMappingEffect: ToneMappingEffect | null = null;
+    private customColorGradingEffect: ColorGradingEffect | null = null;
 
     private contrast: number = 0.0;
     private saturation: number = 0.0;
+    private temperature: number = 0.0;
+    private tint: number = 0.0;
 
     constructor(container: HTMLElement, config: Partial<RendererConfig> = {}) {
         const finalConfig = { ...defaultRendererConfig, ...config };
         this.container = container;
         this.contrast = finalConfig.contrast;
         this.saturation = finalConfig.saturation;
+        this.temperature = finalConfig.temperature;
+        this.tint = finalConfig.tint;
 
         this.renderer = new THREE.WebGLRenderer({
             antialias: finalConfig.antialias,
@@ -76,9 +86,13 @@ export class ViewerRenderer {
         this.hueSaturationEffect = new HueSaturationEffect();
         this.hueSaturationEffect.saturation = this.saturation;
 
+        this.customColorGradingEffect = new ColorGradingEffect();
+        this.customColorGradingEffect.temperature = this.temperature;
+        this.customColorGradingEffect.tint = this.tint;
+
         this.toneMappingEffect = new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC });
 
-        this.colorGradingPass = new EffectPass(camera, this.brightnessContrastEffect, this.hueSaturationEffect, this.toneMappingEffect);
+        this.colorGradingPass = new EffectPass(camera, this.brightnessContrastEffect, this.hueSaturationEffect, this.customColorGradingEffect, this.toneMappingEffect);
         this.composer.addPass(this.colorGradingPass);
     }
 
@@ -111,6 +125,20 @@ export class ViewerRenderer {
         this.saturation = saturation;
         if (this.hueSaturationEffect) {
             this.hueSaturationEffect.saturation = saturation;
+        }
+    }
+
+    public setTemperature(temperature: number): void {
+        this.temperature = temperature;
+        if (this.customColorGradingEffect) {
+            this.customColorGradingEffect.temperature = temperature;
+        }
+    }
+
+    public setTint(tint: number): void {
+        this.tint = tint;
+        if (this.customColorGradingEffect) {
+            this.customColorGradingEffect.tint = tint;
         }
     }
 

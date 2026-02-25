@@ -128,14 +128,14 @@ export class ViewerGUI {
             .add(this.params, 'temperature', -1, 1, 0.05)
             .name('Temperature')
             .onChange((value: number) => {
-                this.lightsManager.setTemperature(value);
+                this.viewerRenderer.setTemperature(value);
             });
 
         this.gui
             .add(this.params, 'tint', -1, 1, 0.05)
             .name('Tint')
             .onChange((value: number) => {
-                this.lightsManager.setTint(value);
+                this.viewerRenderer.setTint(value);
             });
 
         this.gui
@@ -177,9 +177,9 @@ export class ViewerGUI {
         this.viewerRenderer.setExposure(this.params.exposure);
         this.viewerRenderer.setContrast(this.params.contrast);
         this.viewerRenderer.setSaturation(this.params.saturation);
+        this.viewerRenderer.setTemperature(this.params.temperature);
+        this.viewerRenderer.setTint(this.params.tint);
 
-        this.lightsManager.setTemperature(this.params.temperature);
-        this.lightsManager.setTint(this.params.tint);
         this.lightsManager.setHighlights(this.params.highlights);
         this.lightsManager.setShadows(this.params.shadows);
 
@@ -248,11 +248,11 @@ export class ViewerGUI {
             }
             if (importedParams.temperature !== undefined) {
                 this.params.temperature = importedParams.temperature;
-                this.lightsManager.setTemperature(this.params.temperature);
+                this.viewerRenderer.setTemperature(this.params.temperature);
             }
             if (importedParams.tint !== undefined) {
                 this.params.tint = importedParams.tint;
-                this.lightsManager.setTint(this.params.tint);
+                this.viewerRenderer.setTint(this.params.tint);
             }
             if (importedParams.highlights !== undefined) {
                 this.params.highlights = importedParams.highlights;
