@@ -95,11 +95,11 @@ class GLBViewer {
 
   private async loadTestModel(): Promise<void> {
     try {
-      const response = await fetch('/Hub-Mekkah.glb');
+      const response = await fetch('/Hub_Light.glb');
       if (response.ok) {
         console.log('🔄 Loading test model...');
         const data = await response.arrayBuffer();
-        const result = await loadFromFile(new File([data], 'Hub-Mekkah.glb'), (p) => {
+        const result = await loadFromFile(new File([data], 'Hub_Light.glb'), (p) => {
           console.log(`Loading: ${p.toFixed(1)}%`);
         });
         this.handleLoadResult(result);
