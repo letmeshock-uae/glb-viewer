@@ -6,6 +6,7 @@ export interface RendererConfig {
     antialias: boolean;
     alpha: boolean;
     toneMapping: THREE.ToneMapping;
+    toneMappingMode: ToneMappingMode; // for postprocessing
     toneMappingExposure: number;
     castShadow: boolean;
     contrast: number;
@@ -19,7 +20,8 @@ export interface RendererConfig {
 export const defaultRendererConfig: RendererConfig = {
     antialias: true,
     alpha: true,
-    toneMapping: THREE.ACESFilmicToneMapping,
+    toneMapping: THREE.NoToneMapping, // Let postprocessing handle it
+    toneMappingMode: ToneMappingMode.ACES_FILMIC,
     toneMappingExposure: 1.0,
     castShadow: true,
     contrast: 0.0,
@@ -48,6 +50,7 @@ export class ViewerRenderer {
     private tint: number = 0.0;
     private highlights: number = 1.0;
     private shadows: number = 1.0;
+    private toneMappingMode: ToneMappingMode = ToneMappingMode.ACES_FILMIC;
 
     constructor(container: HTMLElement, config: Partial<RendererConfig> = {}) {
         const finalConfig = { ...defaultRendererConfig, ...config };
@@ -58,6 +61,7 @@ export class ViewerRenderer {
         this.tint = finalConfig.tint;
         this.highlights = finalConfig.highlights;
         this.shadows = finalConfig.shadows;
+        this.toneMappingMode = finalConfig.toneMappingMode;
 
         this.renderer = new THREE.WebGLRenderer({
             antialias: finalConfig.antialias,
@@ -101,7 +105,7 @@ export class ViewerRenderer {
         this.customColorGradingEffect.highlights = this.highlights;
         this.customColorGradingEffect.shadows = this.shadows;
 
-        this.toneMappingEffect = new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC });
+        this.toneMappingEffect = new ToneMappingEffect({ mode: this.toneMappingMode });
 
         this.colorGradingPass = new EffectPass(camera, this.brightnessContrastEffect, this.hueSaturationEffect, this.customColorGradingEffect, this.toneMappingEffect);
         this.composer.addPass(this.colorGradingPass);
@@ -117,6 +121,14 @@ export class ViewerRenderer {
         }
     }
 
+    public setToneMappingMode(mode: ToneMappingMode): void {
+        this.toneMappingMode = mode;
+        if (this.toneMappingEffect) {
+            this.toneMappingEffect.mode = mode;
+        }
+    }
+
+    // Keep this for any native Three.js materials if needed, but usually not with postprocessing
     public setToneMapping(toneMapping: THREE.ToneMapping): void {
         this.renderer.toneMapping = toneMapping;
     }

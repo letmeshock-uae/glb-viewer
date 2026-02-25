@@ -1,5 +1,6 @@
 import GUI from 'lil-gui';
 import * as THREE from 'three';
+import { ToneMappingMode } from 'postprocessing';
 import { ViewerRenderer } from '../core/renderer';
 import { ViewerScene } from '../core/scene';
 import { EnvironmentManager, type BackgroundMode } from '../core/env';
@@ -15,6 +16,7 @@ export interface GUIParams {
     highlights: number;
     shadows: number;
     envIntensity: number;
+    toneMappingMode: number;
 }
 
 const defaultParams: GUIParams = {
@@ -26,132 +28,126 @@ const defaultParams: GUIParams = {
     highlights: 1.0,
     shadows: 1.0,
     envIntensity: 1.0,
+    toneMappingMode: ToneMappingMode.ACES_FILMIC,
 };
+
+export interface GUIActions {
+    onOpen: () => void;
+    onReset: () => void;
+    onFit: () => void;
+    onToggleGrid: () => void;
+    onToggleAxes: () => void;
+    onScreenshot: () => void;
+}
 
 export class ViewerGUI {
     private gui: GUI;
     private params: GUIParams;
     private viewerRenderer: ViewerRenderer;
-    private viewerScene: ViewerScene;
     private envManager: EnvironmentManager;
     private lightsManager: LightsManager;
-    private controls: ViewerControls;
+    private actions: GUIActions;
 
     constructor(
         container: HTMLElement,
         viewerRenderer: ViewerRenderer,
-        viewerScene: ViewerScene,
         envManager: EnvironmentManager,
         lightsManager: LightsManager,
-        controls: ViewerControls
+        actions: GUIActions
     ) {
         this.viewerRenderer = viewerRenderer;
-        this.viewerScene = viewerScene;
         this.envManager = envManager;
         this.lightsManager = lightsManager;
-        this.controls = controls;
+        this.actions = actions;
+
         this.params = { ...defaultParams };
-        this.gui = new GUI({ container, title: 'Color Grading & Lighting' });
+        this.gui = new GUI({ container, title: 'Controls' });
         this.gui.domElement.classList.add('viewer-gui');
 
         this.gui.open();
 
-        const guiAny = this.gui as unknown as { $title: HTMLElement; _onTitleClick: () => void };
-        if (guiAny.$title) {
-            guiAny.$title.style.pointerEvents = 'none';
-            guiAny.$title.style.cursor = 'default';
-            guiAny.$title.style.background = 'none';
-            guiAny.$title.style.backgroundColor = 'transparent';
-            guiAny.$title.style.border = 'none';
-            guiAny.$title.style.boxShadow = 'none';
-            guiAny.$title.style.outline = 'none';
-        }
-
-        const styleEl = document.createElement('style');
-        styleEl.textContent = `
-            .viewer-gui > .lil-title::before,
-            .viewer-gui.lil-gui > .lil-title::before,
-            .lil-gui.root > .lil-title::before,
-            .lil-gui.viewer-gui > .lil-title::before,
-            #gui-container .lil-gui > .lil-title::before,
-            .lil-gui > .lil-title::before {
-                display: none !important;
-                content: "" !important;
-                visibility: hidden !important;
-                width: 0 !important;
-                height: 0 !important;
-                font-size: 0 !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                opacity: 0 !important;
-            }
-            .viewer-gui > .lil-title,
-            .lil-gui.viewer-gui > .lil-title {
-                background: transparent !important;
-                border: none !important;
-            }
-        `;
-        document.head.appendChild(styleEl);
-
-        if (typeof guiAny._onTitleClick === 'function') {
-            guiAny._onTitleClick = () => { };
-        }
-
+        this.setupToolbarActions();
         this.setupColorGrading();
         this.setupExportFolder();
     }
 
+    private setupToolbarActions(): void {
+        const folder = this.gui.addFolder('🛠 Tools');
+
+        folder.add(this.actions, 'onOpen').name('📁 Open File');
+        folder.add(this.actions, 'onReset').name('🔄 Reset Scene');
+        folder.add(this.actions, 'onFit').name('🔍 Fit Model');
+        folder.add(this.actions, 'onToggleGrid').name('📏 Toggle Grid');
+        folder.add(this.actions, 'onToggleAxes').name('🧭 Toggle Axes');
+        folder.add(this.actions, 'onScreenshot').name('📸 Screenshot');
+    }
+
     private setupColorGrading(): void {
-        this.gui
+        const folder = this.gui.addFolder('🎨 Color & Light');
+
+        folder.add(this.params, 'toneMappingMode', {
+            'ACES Filmic': ToneMappingMode.ACES_FILMIC,
+            'Reinhard': ToneMappingMode.REINHARD,
+            'Reinhard2': ToneMappingMode.REINHARD2,
+            'Reinhard2_Adaptive': ToneMappingMode.REINHARD2_ADAPTIVE,
+            'Optimized Cineon': ToneMappingMode.OPTIMIZED_CINEON,
+            'AgX': ToneMappingMode.AGX,
+            'Neutral': ToneMappingMode.NEUTRAL
+        }).name('Tone Mapping')
+            .onChange((value: number) => {
+                this.viewerRenderer.setToneMappingMode(value);
+            });
+
+        folder
             .add(this.params, 'exposure', 0.1, 5, 0.1)
             .name('Exposure')
             .onChange((value: number) => {
                 this.viewerRenderer.setExposure(value);
             });
 
-        this.gui
+        folder
             .add(this.params, 'contrast', -1, 1, 0.05)
             .name('Contrast')
             .onChange((value: number) => {
                 this.viewerRenderer.setContrast(value);
             });
 
-        this.gui
+        folder
             .add(this.params, 'saturation', -1, 1, 0.05)
             .name('Saturation')
             .onChange((value: number) => {
                 this.viewerRenderer.setSaturation(value);
             });
 
-        this.gui
+        folder
             .add(this.params, 'temperature', -1, 1, 0.05)
             .name('Temperature')
             .onChange((value: number) => {
                 this.viewerRenderer.setTemperature(value);
             });
 
-        this.gui
+        folder
             .add(this.params, 'tint', -1, 1, 0.05)
             .name('Tint')
             .onChange((value: number) => {
                 this.viewerRenderer.setTint(value);
             });
 
-        this.gui
+        folder
             .add(this.params, 'envIntensity', 0, 5, 0.1)
             .name('Env Light')
             .onChange((value: number) => {
                 this.envManager.setIntensity(value);
             });
 
-        this.gui
+        folder
             .add(this.params, 'highlights', 0, 2, 0.05)
             .name('Highlights')
             .onChange((value: number) => {
                 this.viewerRenderer.setHighlights(value);
             });
 
-        this.gui
+        folder
             .add(this.params, 'shadows', 0, 2, 0.05)
             .name('Shadows')
             .onChange((value: number) => {
@@ -187,10 +183,11 @@ export class ViewerGUI {
         this.viewerRenderer.setTint(this.params.tint);
         this.viewerRenderer.setHighlights(this.params.highlights);
         this.viewerRenderer.setShadows(this.params.shadows);
+        this.viewerRenderer.setToneMappingMode(this.params.toneMappingMode);
 
         this.envManager.setIntensity(this.params.envIntensity);
 
-        this.gui.controllers.forEach(c => c.updateDisplay());
+        this.gui.controllersRecursive().forEach(c => c.updateDisplay());
     }
 
     private exportToJSON(): void {
@@ -273,9 +270,13 @@ export class ViewerGUI {
                 this.params.shadows = importedParams.shadows;
                 this.viewerRenderer.setShadows(this.params.shadows);
             }
+            if (importedParams.toneMappingMode !== undefined) {
+                this.params.toneMappingMode = importedParams.toneMappingMode;
+                this.viewerRenderer.setToneMappingMode(this.params.toneMappingMode);
+            }
         }
 
-        this.gui.controllers.forEach(c => c.updateDisplay());
+        this.gui.controllersRecursive().forEach(c => c.updateDisplay());
     }
 
     public dispose(): void {

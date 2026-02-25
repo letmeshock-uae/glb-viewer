@@ -62,10 +62,16 @@ class GLBViewer {
     this.gui = new ViewerGUI(
       this.guiContainer,
       this.renderer,
-      this.scene,
       this.envManager,
       this.lightsManager,
-      this.controls
+      {
+        onOpen: () => this.filePicker.click(),
+        onReset: () => this.resetScene(),
+        onFit: () => this.fitToModel(),
+        onToggleGrid: () => this.scene.toggleGrid(),
+        onToggleAxes: () => this.scene.toggleAxes(),
+        onScreenshot: () => this.takeScreenshot()
+      }
     );
 
     // Setup dropzone
@@ -77,9 +83,6 @@ class GLBViewer {
     // Setup file picker
     this.filePicker = createFilePicker(this.handleFileDrop.bind(this));
     document.body.appendChild(this.filePicker);
-
-    // Setup toolbar buttons
-    this.setupToolbar();
 
     // Handle window resize
     window.addEventListener('resize', this.handleResize.bind(this));
@@ -135,40 +138,6 @@ class GLBViewer {
     } else {
       this.loadingOverlay.classList.remove('active');
     }
-  }
-
-  private setupToolbar(): void {
-    const toolbar = document.getElementById('toolbar')!;
-
-    // Open button
-    const openBtn = toolbar.querySelector('[data-action="open"]');
-    openBtn?.addEventListener('click', () => this.filePicker.click());
-
-    // Reset button
-    const resetBtn = toolbar.querySelector('[data-action="reset"]');
-    resetBtn?.addEventListener('click', () => this.resetScene());
-
-    // Fit button
-    const fitBtn = toolbar.querySelector('[data-action="fit"]');
-    fitBtn?.addEventListener('click', () => this.fitToModel());
-
-    // Screenshot button
-    const screenshotBtn = toolbar.querySelector('[data-action="screenshot"]');
-    screenshotBtn?.addEventListener('click', () => this.takeScreenshot());
-
-    // Grid button
-    const gridBtn = toolbar.querySelector('[data-action="grid"]');
-    gridBtn?.addEventListener('click', () => {
-      this.scene.toggleGrid();
-      gridBtn.classList.toggle('active');
-    });
-
-    // Axes button
-    const axesBtn = toolbar.querySelector('[data-action="axes"]');
-    axesBtn?.addEventListener('click', () => {
-      this.scene.toggleAxes();
-      axesBtn.classList.toggle('active');
-    });
   }
 
   private async handleFileDrop(file: File): Promise<void> {
