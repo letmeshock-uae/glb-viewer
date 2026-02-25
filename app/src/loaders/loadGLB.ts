@@ -31,8 +31,15 @@ export async function loadGLB(
             data,
             '',
             (gltf) => {
+                const lightsToRemove: THREE.Light[] = [];
+
                 // Enable shadows for all meshes and fix texture settings
                 gltf.scene.traverse((child) => {
+                    // Collect embedded lights to remove them (they overexpose the scene)
+                    if (child instanceof THREE.Light) {
+                        lightsToRemove.push(child);
+                    }
+
                     if (child instanceof THREE.Mesh) {
                         child.castShadow = true;
                         child.receiveShadow = true;
@@ -47,8 +54,6 @@ export async function loadGLB(
                                 // Handle all PBR materials
                                 if (mat instanceof THREE.MeshStandardMaterial ||
                                     mat instanceof THREE.MeshPhysicalMaterial) {
-
-                                    mat.envMapIntensity = 1.0;
 
                                     // Ensure textures have correct colorSpace
                                     if (mat.map) {
@@ -80,6 +85,13 @@ export async function loadGLB(
                     }
                 });
 
+                // Remove the embedded lights so they don't fight with our environment setup
+                lightsToRemove.forEach(light => {
+                    if (light.parent) {
+                        light.parent.remove(light);
+                    }
+                });
+
                 resolve({
                     scene: gltf.scene,
                     animations: gltf.animations,
@@ -104,10 +116,21 @@ export async function loadGLBFromURL(
         loader.load(
             url,
             (gltf) => {
+                const lightsToRemove: THREE.Light[] = [];
+
                 gltf.scene.traverse((child) => {
+                    if (child instanceof THREE.Light) {
+                        lightsToRemove.push(child);
+                    }
                     if (child instanceof THREE.Mesh) {
                         child.castShadow = true;
                         child.receiveShadow = true;
+                    }
+                });
+
+                lightsToRemove.forEach(light => {
+                    if (light.parent) {
+                        light.parent.remove(light);
                     }
                 });
 

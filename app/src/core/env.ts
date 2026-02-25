@@ -135,7 +135,17 @@ export class EnvironmentManager {
 
     public setIntensity(intensity: number): void {
         this.config.intensity = intensity;
-        // Apply intensity to all materials in scene
+
+        // Modern Three.js way (r163+)
+        if ('environmentIntensity' in this.scene) {
+            (this.scene as any).environmentIntensity = intensity;
+        }
+
+        if ('backgroundIntensity' in this.scene && this.config.backgroundMode === 'hdri') {
+            (this.scene as any).backgroundIntensity = intensity;
+        }
+
+        // Fallback: Apply intensity to all materials in scene
         this.scene.traverse((obj) => {
             if (obj instanceof THREE.Mesh && obj.material) {
                 const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
