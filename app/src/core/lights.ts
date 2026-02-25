@@ -147,6 +147,7 @@ export class LightsManager {
         }
 
         const managed: ManagedLight = { id, config, light, helper };
+        this.initBaseValues(id, config.color, config.intensity);
         this.lights.set(id, managed);
 
         return id;
@@ -366,5 +367,96 @@ export class LightsManager {
      */
     public getGroundPlane(): THREE.Mesh | null {
         return this.groundPlane;
+    }
+
+    // --- Color Grading & Lighting Helpers ---
+
+    private baseColors = new Map<string, THREE.Color>();
+    private baseIntensities = new Map<string, number>();
+
+    private temperature: number = 0; // -1 to 1 (blue to orange)
+    private tint: number = 0;        // -1 to 1 (green to magenta)
+    private highlights: number = 1.0; // Multiplier for directional lights
+    private shadows: number = 1.0;    // Multiplier for fill/ambient lights
+
+    private initBaseValues(id: string, color: THREE.ColorRepresentation, intensity: number) {
+        if (!this.baseColors.has(id)) {
+            this.baseColors.set(id, new THREE.Color(color as THREE.ColorRepresentation));
+        }
+        if (!this.baseIntensities.has(id)) {
+            this.baseIntensities.set(id, intensity);
+        }
+    }
+
+    private applyColorGrading(): void {
+        const tempColor = new THREE.Color();
+        const tintColor = new THREE.Color();
+
+        // Temperature (Blue vs Orange)
+        if (this.temperature > 0) {
+            tempColor.setHex(0xffaa00); // Warm
+        } else {
+            tempColor.setHex(0x00aaff); // Cool
+        }
+
+        // Tint (Green vs Magenta)
+        if (this.tint > 0) {
+            tintColor.setHex(0xff00ff); // Magenta
+        } else {
+            tintColor.setHex(0x00ff00); // Green
+        }
+
+        this.lights.forEach((managed, id) => {
+            const baseColor = this.baseColors.get(id);
+            const baseIntensity = this.baseIntensities.get(id);
+
+            if (!baseColor || baseIntensity === undefined) return;
+
+            // Apply color shift
+            const finalColor = baseColor.clone();
+            if (this.temperature !== 0) {
+                finalColor.lerp(tempColor, Math.abs(this.temperature) * 0.3); // Max 30% blend
+            }
+            if (this.tint !== 0) {
+                finalColor.lerp(tintColor, Math.abs(this.tint) * 0.3); // Max 30% blend
+            }
+
+            if ('color' in managed.light) {
+                (managed.light as THREE.DirectionalLight).color.copy(finalColor);
+            }
+
+            // Apply intensity multipliers
+            let multiplier = 1.0;
+            // Treat directional/spot as highlights, others as shadows
+            if (managed.config.type === 'directional' || managed.config.type === 'spot') {
+                multiplier = this.highlights;
+            } else {
+                multiplier = this.shadows;
+            }
+
+            managed.light.intensity = baseIntensity * multiplier;
+            managed.config.color = finalColor;
+            managed.config.intensity = managed.light.intensity;
+        });
+    }
+
+    public setTemperature(value: number): void {
+        this.temperature = value;
+        this.applyColorGrading();
+    }
+
+    public setTint(value: number): void {
+        this.tint = value;
+        this.applyColorGrading();
+    }
+
+    public setHighlights(value: number): void {
+        this.highlights = value;
+        this.applyColorGrading();
+    }
+
+    public setShadows(value: number): void {
+        this.shadows = value;
+        this.applyColorGrading();
     }
 }

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { EffectComposer, EffectPass, RenderPass, NoiseEffect, BlendFunction } from 'postprocessing';
+import { EffectComposer, EffectPass, RenderPass, BrightnessContrastEffect, HueSaturationEffect } from 'postprocessing';
 
 export interface RendererConfig {
     antialias: boolean;
@@ -7,8 +7,8 @@ export interface RendererConfig {
     toneMapping: THREE.ToneMapping;
     toneMappingExposure: number;
     castShadow: boolean;
-    noiseEnabled: boolean;
-    noiseIntensity: number;
+    contrast: number;
+    saturation: number;
 }
 
 export const defaultRendererConfig: RendererConfig = {
@@ -17,8 +17,8 @@ export const defaultRendererConfig: RendererConfig = {
     toneMapping: THREE.ACESFilmicToneMapping,
     toneMappingExposure: 1.0,
     castShadow: true,
-    noiseEnabled: true,
-    noiseIntensity: 0.08,
+    contrast: 0.0,
+    saturation: 0.0,
 };
 
 export class ViewerRenderer {
@@ -26,16 +26,19 @@ export class ViewerRenderer {
     private container: HTMLElement;
     private composer: EffectComposer | null = null;
     private renderPass: RenderPass | null = null;
-    private noiseEffect: NoiseEffect | null = null;
-    private noisePass: EffectPass | null = null;
-    private noiseEnabled: boolean = true;
-    private noiseIntensity: number = 0.08;
+
+    private colorGradingPass: EffectPass | null = null;
+    private brightnessContrastEffect: BrightnessContrastEffect | null = null;
+    private hueSaturationEffect: HueSaturationEffect | null = null;
+
+    private contrast: number = 0.0;
+    private saturation: number = 0.0;
 
     constructor(container: HTMLElement, config: Partial<RendererConfig> = {}) {
         const finalConfig = { ...defaultRendererConfig, ...config };
         this.container = container;
-        this.noiseEnabled = finalConfig.noiseEnabled;
-        this.noiseIntensity = finalConfig.noiseIntensity;
+        this.contrast = finalConfig.contrast;
+        this.saturation = finalConfig.saturation;
 
         this.renderer = new THREE.WebGLRenderer({
             antialias: finalConfig.antialias,
@@ -58,28 +61,22 @@ export class ViewerRenderer {
     }
 
     private setupPostProcessing(scene: THREE.Scene, camera: THREE.Camera): void {
-        // Dispose old composer if exists
         if (this.composer) {
             this.composer.dispose();
         }
 
-        // Create effect composer
         this.composer = new EffectComposer(this.renderer);
-
-        // Add render pass
         this.renderPass = new RenderPass(scene, camera);
         this.composer.addPass(this.renderPass);
 
-        // Add noise effect
-        this.noiseEffect = new NoiseEffect({
-            blendFunction: BlendFunction.OVERLAY,
-            premultiply: true,
-        });
-        this.noiseEffect.blendMode.opacity.value = this.noiseIntensity;
+        this.brightnessContrastEffect = new BrightnessContrastEffect();
+        this.brightnessContrastEffect.contrast = this.contrast;
 
-        this.noisePass = new EffectPass(camera, this.noiseEffect);
-        this.noisePass.enabled = this.noiseEnabled;
-        this.composer.addPass(this.noisePass);
+        this.hueSaturationEffect = new HueSaturationEffect();
+        this.hueSaturationEffect.saturation = this.saturation;
+
+        this.colorGradingPass = new EffectPass(camera, this.brightnessContrastEffect, this.hueSaturationEffect);
+        this.composer.addPass(this.colorGradingPass);
     }
 
     private onResize(): void {
@@ -100,22 +97,18 @@ export class ViewerRenderer {
         this.renderer.toneMappingExposure = exposure;
     }
 
-    public setNoiseEnabled(enabled: boolean): void {
-        this.noiseEnabled = enabled;
-        if (this.noisePass) {
-            this.noisePass.enabled = enabled;
+    public setContrast(contrast: number): void {
+        this.contrast = contrast;
+        if (this.brightnessContrastEffect) {
+            this.brightnessContrastEffect.contrast = contrast;
         }
     }
 
-    public setNoiseIntensity(intensity: number): void {
-        this.noiseIntensity = intensity;
-        if (this.noiseEffect) {
-            this.noiseEffect.blendMode.opacity.value = intensity;
+    public setSaturation(saturation: number): void {
+        this.saturation = saturation;
+        if (this.hueSaturationEffect) {
+            this.hueSaturationEffect.saturation = saturation;
         }
-    }
-
-    public isNoiseEnabled(): boolean {
-        return this.noiseEnabled;
     }
 
     public takeScreenshot(filename: string = 'screenshot.png'): void {
@@ -127,21 +120,18 @@ export class ViewerRenderer {
     }
 
     public render(scene: THREE.Scene, camera: THREE.Camera): void {
-        // Initialize or update composer
         if (!this.composer) {
             this.setupPostProcessing(scene, camera);
         } else if (this.renderPass) {
-            // Update scene and camera references for render pass
             this.renderPass.mainScene = scene;
             this.renderPass.mainCamera = camera;
         }
 
-        // Update noise pass camera if needed
-        if (this.noisePass && this.noisePass.mainCamera !== camera) {
-            this.noisePass.mainCamera = camera;
+        if (this.colorGradingPass && this.colorGradingPass.mainCamera !== camera) {
+            this.colorGradingPass.mainCamera = camera;
         }
 
-        if (this.composer && this.noiseEnabled) {
+        if (this.composer) {
             this.composer.render();
         } else {
             this.renderer.render(scene, camera);
