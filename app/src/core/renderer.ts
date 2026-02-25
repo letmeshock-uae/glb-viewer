@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { EffectComposer, EffectPass, RenderPass, BrightnessContrastEffect, HueSaturationEffect } from 'postprocessing';
+import { EffectComposer, EffectPass, RenderPass, BrightnessContrastEffect, HueSaturationEffect, ToneMappingEffect, ToneMappingMode } from 'postprocessing';
 
 export interface RendererConfig {
     antialias: boolean;
@@ -30,6 +30,7 @@ export class ViewerRenderer {
     private colorGradingPass: EffectPass | null = null;
     private brightnessContrastEffect: BrightnessContrastEffect | null = null;
     private hueSaturationEffect: HueSaturationEffect | null = null;
+    private toneMappingEffect: ToneMappingEffect | null = null;
 
     private contrast: number = 0.0;
     private saturation: number = 0.0;
@@ -75,7 +76,9 @@ export class ViewerRenderer {
         this.hueSaturationEffect = new HueSaturationEffect();
         this.hueSaturationEffect.saturation = this.saturation;
 
-        this.colorGradingPass = new EffectPass(camera, this.brightnessContrastEffect, this.hueSaturationEffect);
+        this.toneMappingEffect = new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC });
+
+        this.colorGradingPass = new EffectPass(camera, this.brightnessContrastEffect, this.hueSaturationEffect, this.toneMappingEffect);
         this.composer.addPass(this.colorGradingPass);
     }
 
