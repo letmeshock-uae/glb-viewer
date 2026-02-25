@@ -39,14 +39,18 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
     // Shadows and Highlights adjustment
     float lum = getLuminance(finalColor);
     
-    // Smoothstep masks for shadows (dark areas) and highlights (bright areas)
-    float shadowMask = 1.0 - smoothstep(0.0, 0.5, lum);
-    float highlightMask = smoothstep(0.5, 1.0, lum);
+    // Smooth masks
+    // Shadows: focus on darker areas (Luminance < 0.4)
+    float shadowMask = 1.0 - smoothstep(0.0, 0.4, lum);
+    // Highlights: focus on brighter areas (Luminance > 0.6)
+    float highlightMask = smoothstep(0.6, 1.0, lum);
 
-    // Default shadows/highlights uniform is 1.0. 
-    // Multiply by the respective mask to brighten or darken those regions.
-    finalColor += finalColor * shadowMask * (shadows - 1.0);
-    finalColor += finalColor * highlightMask * (highlights - 1.0);
+    // Apply adjustments.
+    // shadows and highlights uniforms are centered at 1.0.
+    // Range 0.0 to 2.0 -> -1.0 to +1.0 for the multiplier.
+    // We multiply by a factor (e.g., 2.0) to make the effect stronger.
+    finalColor += finalColor * shadowMask * (shadows - 1.0) * 2.0;
+    finalColor += finalColor * highlightMask * (highlights - 1.0) * 2.0;
 
     // Prevent negative colors
     finalColor = max(finalColor, 0.0);
