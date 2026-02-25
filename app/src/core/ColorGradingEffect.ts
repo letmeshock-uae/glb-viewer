@@ -4,6 +4,7 @@ import * as THREE from 'three';
 const fragmentShader = `
 uniform float temperature;
 uniform float tint;
+uniform float exposure;
 
 // Convert RGB to Luminance
 float getLuminance(vec3 color) {
@@ -11,7 +12,8 @@ float getLuminance(vec3 color) {
 }
 
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    vec3 color = inputColor.rgb;
+    // Apply exposure first (linear space)
+    vec3 color = inputColor.rgb * exposure;
 
     // Temperature (Blue vs Orange)
     // Positive temperature adds orange, negative adds blue
@@ -43,6 +45,7 @@ export class ColorGradingEffect extends Effect {
             uniforms: new Map<string, THREE.Uniform>([
                 ['temperature', new THREE.Uniform(0.0)],
                 ['tint', new THREE.Uniform(0.0)],
+                ['exposure', new THREE.Uniform(1.0)],
             ])
         });
     }
@@ -61,5 +64,13 @@ export class ColorGradingEffect extends Effect {
 
     get tint(): number {
         return this.uniforms.get('tint')!.value;
+    }
+
+    set exposure(value: number) {
+        this.uniforms.get('exposure')!.value = value;
+    }
+
+    get exposure(): number {
+        return this.uniforms.get('exposure')!.value;
     }
 }

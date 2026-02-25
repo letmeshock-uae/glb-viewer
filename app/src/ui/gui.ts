@@ -14,9 +14,7 @@ export interface GUIParams {
     tint: number;
     highlights: number;
     shadows: number;
-
-    // We'll keep autoRotate invisible but in params for export compatibility, or just remove it if not needed.
-    // Let's keep it clean.
+    envIntensity: number;
 }
 
 const defaultParams: GUIParams = {
@@ -27,6 +25,7 @@ const defaultParams: GUIParams = {
     tint: 0.0,
     highlights: 1.0,
     shadows: 1.0,
+    envIntensity: 1.0,
 };
 
 export class ViewerGUI {
@@ -139,6 +138,13 @@ export class ViewerGUI {
             });
 
         this.gui
+            .add(this.params, 'envIntensity', 0, 5, 0.1)
+            .name('Env Light')
+            .onChange((value: number) => {
+                this.envManager.setIntensity(value);
+            });
+
+        this.gui
             .add(this.params, 'highlights', 0, 3, 0.1)
             .name('Highlights')
             .onChange((value: number) => {
@@ -179,6 +185,8 @@ export class ViewerGUI {
         this.viewerRenderer.setSaturation(this.params.saturation);
         this.viewerRenderer.setTemperature(this.params.temperature);
         this.viewerRenderer.setTint(this.params.tint);
+
+        this.envManager.setIntensity(this.params.envIntensity);
 
         this.lightsManager.setHighlights(this.params.highlights);
         this.lightsManager.setShadows(this.params.shadows);
@@ -253,6 +261,10 @@ export class ViewerGUI {
             if (importedParams.tint !== undefined) {
                 this.params.tint = importedParams.tint;
                 this.viewerRenderer.setTint(this.params.tint);
+            }
+            if (importedParams.envIntensity !== undefined) {
+                this.params.envIntensity = importedParams.envIntensity;
+                this.envManager.setIntensity(this.params.envIntensity);
             }
             if (importedParams.highlights !== undefined) {
                 this.params.highlights = importedParams.highlights;

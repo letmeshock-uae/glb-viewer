@@ -89,6 +89,7 @@ export class ViewerRenderer {
         this.customColorGradingEffect = new ColorGradingEffect();
         this.customColorGradingEffect.temperature = this.temperature;
         this.customColorGradingEffect.tint = this.tint;
+        this.customColorGradingEffect.exposure = this.renderer.toneMappingExposure;
 
         this.toneMappingEffect = new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC });
 
@@ -112,6 +113,9 @@ export class ViewerRenderer {
 
     public setExposure(exposure: number): void {
         this.renderer.toneMappingExposure = exposure;
+        if (this.customColorGradingEffect) {
+            this.customColorGradingEffect.exposure = exposure;
+        }
     }
 
     public setContrast(contrast: number): void {
