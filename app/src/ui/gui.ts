@@ -16,7 +16,13 @@ export interface GUIParams {
     highlights: number;
     shadows: number;
     envIntensity: number;
+    envRotation: number;
     toneMappingMode: number;
+    sunLightEnabled: boolean;
+    sunLightColor: string;
+    sunLightIntensity: number;
+    sunLightElevation: number;
+    sunLightAzimuth: number;
 }
 
 const defaultParams: GUIParams = {
@@ -28,7 +34,13 @@ const defaultParams: GUIParams = {
     highlights: 1.0,
     shadows: 1.0,
     envIntensity: 1.0,
+    envRotation: 0.0,
     toneMappingMode: ToneMappingMode.ACES_FILMIC,
+    sunLightEnabled: true,
+    sunLightColor: '#ffffff',
+    sunLightIntensity: 2.0,
+    sunLightElevation: Math.PI / 4,
+    sunLightAzimuth: Math.PI / 4,
 };
 
 export interface GUIActions {
@@ -67,6 +79,7 @@ export class ViewerGUI {
         this.gui.open();
 
         this.setupToolbarActions();
+        this.setupEnvironmentAndLight();
         this.setupColorGrading();
         this.setupExportFolder();
     }
@@ -134,13 +147,6 @@ export class ViewerGUI {
             });
 
         folder
-            .add(this.params, 'envIntensity', 0, 5, 0.1)
-            .name('Env Light')
-            .onChange((value: number) => {
-                this.envManager.setIntensity(value);
-            });
-
-        folder
             .add(this.params, 'highlights', 0, 2, 0.05)
             .name('Highlights')
             .onChange((value: number) => {
@@ -153,6 +159,50 @@ export class ViewerGUI {
             .onChange((value: number) => {
                 this.viewerRenderer.setShadows(value);
             });
+    }
+
+    private sunLightId: string | null = null;
+
+    private setupEnvironmentAndLight(): void {
+        const folder = this.gui.addFolder('☀️ Environment & Light');
+
+        // Environment
+        folder.add(this.params, 'envIntensity', 0, 5, 0.1).name('HDRI Intensity').onChange((v: number) => this.envManager.setIntensity(v));
+        folder.add(this.params, 'envRotation', 0, Math.PI * 2, 0.01).name('HDRI Rotation').onChange((v: number) => this.envManager.setRotation(v));
+
+        // Sun Light
+        folder.add(this.params, 'sunLightEnabled').name('Enable Sun').onChange(() => this.updateSunLight());
+        folder.addColor(this.params, 'sunLightColor').name('Sun Color').onChange(() => this.updateSunLight());
+        folder.add(this.params, 'sunLightIntensity', 0, 10, 0.1).name('Sun Intensity').onChange(() => this.updateSunLight());
+        folder.add(this.params, 'sunLightElevation', 0, Math.PI / 2, 0.01).name('Sun Elevation').onChange(() => this.updateSunLight());
+        folder.add(this.params, 'sunLightAzimuth', 0, Math.PI * 2, 0.01).name('Sun Azimuth').onChange(() => this.updateSunLight());
+
+        // Initialize Sun Light
+        this.updateSunLight();
+    }
+
+    private updateSunLight(): void {
+        if (!this.params.sunLightEnabled) {
+            if (this.sunLightId) {
+                this.lightsManager.removeLight(this.sunLightId);
+                this.sunLightId = null;
+            }
+        } else {
+            const config = {
+                type: 'directional' as LightType,
+                name: 'Sun',
+                color: this.params.sunLightColor,
+                intensity: this.params.sunLightIntensity,
+                elevation: this.params.sunLightElevation,
+                azimuth: this.params.sunLightAzimuth,
+                castShadow: true
+            };
+            if (!this.sunLightId) {
+                this.sunLightId = this.lightsManager.addLight(config);
+            } else {
+                this.lightsManager.updateLight(this.sunLightId, config);
+            }
+        }
     }
 
     private setupExportFolder(): void {
@@ -186,6 +236,8 @@ export class ViewerGUI {
         this.viewerRenderer.setToneMappingMode(this.params.toneMappingMode);
 
         this.envManager.setIntensity(this.params.envIntensity);
+        this.envManager.setRotation(this.params.envRotation);
+        this.updateSunLight();
 
         this.gui.controllersRecursive().forEach(c => c.updateDisplay());
     }
@@ -274,6 +326,26 @@ export class ViewerGUI {
                 this.params.toneMappingMode = importedParams.toneMappingMode;
                 this.viewerRenderer.setToneMappingMode(this.params.toneMappingMode);
             }
+            if (importedParams.envRotation !== undefined) {
+                this.params.envRotation = importedParams.envRotation;
+                this.envManager.setRotation(this.params.envRotation);
+            }
+            if (importedParams.sunLightEnabled !== undefined) {
+                this.params.sunLightEnabled = importedParams.sunLightEnabled;
+            }
+            if (importedParams.sunLightColor !== undefined) {
+                this.params.sunLightColor = importedParams.sunLightColor;
+            }
+            if (importedParams.sunLightIntensity !== undefined) {
+                this.params.sunLightIntensity = importedParams.sunLightIntensity;
+            }
+            if (importedParams.sunLightElevation !== undefined) {
+                this.params.sunLightElevation = importedParams.sunLightElevation;
+            }
+            if (importedParams.sunLightAzimuth !== undefined) {
+                this.params.sunLightAzimuth = importedParams.sunLightAzimuth;
+            }
+            this.updateSunLight();
         }
 
         this.gui.controllersRecursive().forEach(c => c.updateDisplay());

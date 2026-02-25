@@ -10,6 +10,9 @@ export interface LightConfig {
     position?: THREE.Vector3;
     target?: THREE.Vector3;
     castShadow?: boolean;
+    // Directional specific
+    elevation?: number;
+    azimuth?: number;
     // Spot specific
     angle?: number;
     penumbra?: number;
@@ -35,6 +38,8 @@ export class LightsManager {
     private lightIdCounter: number = 0;
     private helpersVisible: boolean = false;
     private groundPlane: THREE.Mesh | null = null;
+    private lastModelCenter: THREE.Vector3 = new THREE.Vector3();
+    private lastModelSize: number = 10;
 
     constructor(scene: THREE.Scene) {
         this.scene = scene;
@@ -43,8 +48,6 @@ export class LightsManager {
 
     private addDefaultLights(): void {
         // Lights are now intentionally left empty by default.
-        // The procedural environment map (IBL) provides the base lighting for the PBR materials.
-        // Users can add their own directional or spot lights via the UI if needed.
     }
 
     public addLight(config: LightConfig): string {
@@ -55,7 +58,6 @@ export class LightsManager {
         switch (config.type) {
             case 'directional':
                 light = new THREE.DirectionalLight(config.color as THREE.ColorRepresentation, config.intensity);
-                if (config.position) light.position.copy(config.position);
                 if (config.castShadow) {
                     this.setupDirectionalShadow(light as THREE.DirectionalLight);
                 }
@@ -134,19 +136,21 @@ export class LightsManager {
         this.initBaseValues(id, config.color, config.intensity);
         this.lights.set(id, managed);
 
+        if (config.type === 'directional') {
+            this.applyDirectionalPosition(managed);
+        }
+
         return id;
     }
 
     private setupDirectionalShadow(light: THREE.DirectionalLight): void {
         light.castShadow = true;
-        // Use larger shadow map for better quality on large models
         light.shadow.mapSize.width = 8192;
         light.shadow.mapSize.height = 8192;
         light.shadow.bias = -0.00005;
         light.shadow.normalBias = 0.01;
         light.shadow.radius = 2; // Soft shadow edge
 
-        // Default large frustum - will be adjusted by updateShadowsForModel
         const shadowSize = 500;
         light.shadow.camera.left = -shadowSize;
         light.shadow.camera.right = shadowSize;
@@ -157,49 +161,49 @@ export class LightsManager {
         light.shadow.camera.updateProjectionMatrix();
     }
 
+    private applyDirectionalPosition(managed: ManagedLight): void {
+        const dirLight = managed.light as THREE.DirectionalLight;
+        const elevation = managed.config.elevation ?? Math.PI / 4;
+        const azimuth = managed.config.azimuth ?? Math.PI / 4;
+        const radius = this.lastModelSize * 1.5;
+
+        dirLight.position.set(
+            this.lastModelCenter.x + radius * Math.cos(elevation) * Math.sin(azimuth),
+            this.lastModelCenter.y + radius * Math.sin(elevation),
+            this.lastModelCenter.z + radius * Math.cos(elevation) * Math.cos(azimuth)
+        );
+        dirLight.target.position.copy(this.lastModelCenter);
+        this.scene.add(dirLight.target);
+
+        // Adjust shadow camera frustum
+        if (dirLight.castShadow) {
+            dirLight.shadow.camera.left = -radius;
+            dirLight.shadow.camera.right = radius;
+            dirLight.shadow.camera.top = radius;
+            dirLight.shadow.camera.bottom = -radius;
+            dirLight.shadow.camera.near = this.lastModelSize * 0.01;
+            dirLight.shadow.camera.far = this.lastModelSize * 5;
+            dirLight.shadow.camera.updateProjectionMatrix();
+        }
+
+        if (managed.helper && 'update' in managed.helper) {
+            (managed.helper as THREE.DirectionalLightHelper).update();
+        }
+    }
+
     /**
      * Dynamically adjust shadow camera to fit the loaded model
      */
     public updateShadowsForModel(model: THREE.Object3D): void {
         const box = new THREE.Box3().setFromObject(model);
         const size = box.getSize(new THREE.Vector3());
-        const center = box.getCenter(new THREE.Vector3());
 
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const shadowSize = maxDim * 1.5;
-
-        console.log('🔦 Updating shadows for model:', {
-            size: size.toArray(),
-            center: center.toArray(),
-            shadowSize
-        });
+        this.lastModelCenter = box.getCenter(new THREE.Vector3());
+        this.lastModelSize = Math.max(size.x, size.y, size.z) || 10;
 
         this.lights.forEach((managed) => {
-            if (managed.light instanceof THREE.DirectionalLight && managed.light.castShadow) {
-                const dirLight = managed.light;
-
-                // Position light relative to model center
-                dirLight.position.set(
-                    center.x + maxDim * 0.5,
-                    center.y + maxDim * 1.0,
-                    center.z + maxDim * 0.5
-                );
-                dirLight.target.position.copy(center);
-                this.scene.add(dirLight.target);
-
-                // Adjust shadow camera frustum
-                dirLight.shadow.camera.left = -shadowSize;
-                dirLight.shadow.camera.right = shadowSize;
-                dirLight.shadow.camera.top = shadowSize;
-                dirLight.shadow.camera.bottom = -shadowSize;
-                dirLight.shadow.camera.near = maxDim * 0.01;
-                dirLight.shadow.camera.far = maxDim * 5;
-                dirLight.shadow.camera.updateProjectionMatrix();
-
-                // Update helper if exists
-                if (managed.helper && 'update' in managed.helper) {
-                    (managed.helper as THREE.DirectionalLightHelper).update();
-                }
+            if (managed.light instanceof THREE.DirectionalLight) {
+                this.applyDirectionalPosition(managed);
             }
         });
     }
@@ -262,13 +266,17 @@ export class LightsManager {
             light.castShadow = updates.castShadow;
         }
 
-        // Update helper if exists
-        if (managed.helper && 'update' in managed.helper) {
-            (managed.helper as THREE.DirectionalLightHelper).update();
-        }
-
         // Merge updates into config
         Object.assign(managed.config, updates);
+
+        if (managed.config.type === 'directional') {
+            this.applyDirectionalPosition(managed);
+        } else {
+            // Update helper if exists for non-directional lights
+            if (managed.helper && 'update' in managed.helper) {
+                (managed.helper as any).update();
+            }
+        }
     }
 
     public getLights(): ManagedLight[] {

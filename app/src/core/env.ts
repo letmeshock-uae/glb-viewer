@@ -6,6 +6,7 @@ export type BackgroundMode = 'none' | 'color' | 'hdri';
 export interface EnvConfig {
     enabled: boolean;
     intensity: number;
+    rotation: number;
     backgroundMode: BackgroundMode;
     backgroundColor: THREE.ColorRepresentation;
 }
@@ -13,6 +14,7 @@ export interface EnvConfig {
 export const defaultEnvConfig: EnvConfig = {
     enabled: true,
     intensity: 1.0,
+    rotation: 0.0,
     backgroundMode: 'color',
     backgroundColor: 0x1a1a2e,
 };
@@ -156,6 +158,16 @@ export class EnvironmentManager {
                 });
             }
         });
+    }
+
+    public setRotation(rotationY: number): void {
+        this.config.rotation = rotationY;
+        if ('environmentRotation' in this.scene) {
+            this.scene.environmentRotation.y = rotationY;
+        }
+        if ('backgroundRotation' in this.scene) {
+            this.scene.backgroundRotation.y = rotationY;
+        }
     }
 
     public setBackgroundMode(mode: BackgroundMode): void {
