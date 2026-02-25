@@ -12,6 +12,8 @@ export interface RendererConfig {
     saturation: number;
     temperature: number;
     tint: number;
+    highlights: number;
+    shadows: number;
 }
 
 export const defaultRendererConfig: RendererConfig = {
@@ -24,6 +26,8 @@ export const defaultRendererConfig: RendererConfig = {
     saturation: 0.0,
     temperature: 0.0,
     tint: 0.0,
+    highlights: 1.0,
+    shadows: 1.0,
 };
 
 export class ViewerRenderer {
@@ -42,6 +46,8 @@ export class ViewerRenderer {
     private saturation: number = 0.0;
     private temperature: number = 0.0;
     private tint: number = 0.0;
+    private highlights: number = 1.0;
+    private shadows: number = 1.0;
 
     constructor(container: HTMLElement, config: Partial<RendererConfig> = {}) {
         const finalConfig = { ...defaultRendererConfig, ...config };
@@ -50,6 +56,8 @@ export class ViewerRenderer {
         this.saturation = finalConfig.saturation;
         this.temperature = finalConfig.temperature;
         this.tint = finalConfig.tint;
+        this.highlights = finalConfig.highlights;
+        this.shadows = finalConfig.shadows;
 
         this.renderer = new THREE.WebGLRenderer({
             antialias: finalConfig.antialias,
@@ -90,6 +98,8 @@ export class ViewerRenderer {
         this.customColorGradingEffect.temperature = this.temperature;
         this.customColorGradingEffect.tint = this.tint;
         this.customColorGradingEffect.exposure = this.renderer.toneMappingExposure;
+        this.customColorGradingEffect.highlights = this.highlights;
+        this.customColorGradingEffect.shadows = this.shadows;
 
         this.toneMappingEffect = new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC });
 
@@ -143,6 +153,20 @@ export class ViewerRenderer {
         this.tint = tint;
         if (this.customColorGradingEffect) {
             this.customColorGradingEffect.tint = tint;
+        }
+    }
+
+    public setHighlights(highlights: number): void {
+        this.highlights = highlights;
+        if (this.customColorGradingEffect) {
+            this.customColorGradingEffect.highlights = highlights;
+        }
+    }
+
+    public setShadows(shadows: number): void {
+        this.shadows = shadows;
+        if (this.customColorGradingEffect) {
+            this.customColorGradingEffect.shadows = shadows;
         }
     }
 

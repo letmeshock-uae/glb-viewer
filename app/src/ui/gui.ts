@@ -145,17 +145,17 @@ export class ViewerGUI {
             });
 
         this.gui
-            .add(this.params, 'highlights', 0, 3, 0.1)
+            .add(this.params, 'highlights', 0, 2, 0.05)
             .name('Highlights')
             .onChange((value: number) => {
-                this.lightsManager.setHighlights(value);
+                this.viewerRenderer.setHighlights(value);
             });
 
         this.gui
-            .add(this.params, 'shadows', 0, 3, 0.1)
+            .add(this.params, 'shadows', 0, 2, 0.05)
             .name('Shadows')
             .onChange((value: number) => {
-                this.lightsManager.setShadows(value);
+                this.viewerRenderer.setShadows(value);
             });
     }
 
@@ -185,11 +185,10 @@ export class ViewerGUI {
         this.viewerRenderer.setSaturation(this.params.saturation);
         this.viewerRenderer.setTemperature(this.params.temperature);
         this.viewerRenderer.setTint(this.params.tint);
+        this.viewerRenderer.setHighlights(this.params.highlights);
+        this.viewerRenderer.setShadows(this.params.shadows);
 
         this.envManager.setIntensity(this.params.envIntensity);
-
-        this.lightsManager.setHighlights(this.params.highlights);
-        this.lightsManager.setShadows(this.params.shadows);
 
         this.gui.controllers.forEach(c => c.updateDisplay());
     }
@@ -268,11 +267,11 @@ export class ViewerGUI {
             }
             if (importedParams.highlights !== undefined) {
                 this.params.highlights = importedParams.highlights;
-                this.lightsManager.setHighlights(this.params.highlights);
+                this.viewerRenderer.setHighlights(this.params.highlights);
             }
             if (importedParams.shadows !== undefined) {
                 this.params.shadows = importedParams.shadows;
-                this.lightsManager.setShadows(this.params.shadows);
+                this.viewerRenderer.setShadows(this.params.shadows);
             }
         }
 

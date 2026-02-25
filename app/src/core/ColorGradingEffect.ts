@@ -5,6 +5,8 @@ const fragmentShader = `
 uniform float temperature;
 uniform float tint;
 uniform float exposure;
+uniform float highlights;
+uniform float shadows;
 
 // Convert RGB to Luminance
 float getLuminance(vec3 color) {
@@ -34,6 +36,21 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
     
     vec3 finalColor = tintColor * (originalLum / max(newLum, 0.0001));
 
+    // Shadows and Highlights adjustment
+    float lum = getLuminance(finalColor);
+    
+    // Smoothstep masks for shadows (dark areas) and highlights (bright areas)
+    float shadowMask = 1.0 - smoothstep(0.0, 0.5, lum);
+    float highlightMask = smoothstep(0.5, 1.0, lum);
+
+    // Default shadows/highlights uniform is 1.0. 
+    // Multiply by the respective mask to brighten or darken those regions.
+    finalColor += finalColor * shadowMask * (shadows - 1.0);
+    finalColor += finalColor * highlightMask * (highlights - 1.0);
+
+    // Prevent negative colors
+    finalColor = max(finalColor, 0.0);
+
     outputColor = vec4(finalColor, inputColor.a);
 }
 `;
@@ -46,6 +63,8 @@ export class ColorGradingEffect extends Effect {
                 ['temperature', new THREE.Uniform(0.0)],
                 ['tint', new THREE.Uniform(0.0)],
                 ['exposure', new THREE.Uniform(1.0)],
+                ['highlights', new THREE.Uniform(1.0)],
+                ['shadows', new THREE.Uniform(1.0)],
             ])
         });
     }
@@ -72,5 +91,21 @@ export class ColorGradingEffect extends Effect {
 
     get exposure(): number {
         return this.uniforms.get('exposure')!.value;
+    }
+
+    set highlights(value: number) {
+        this.uniforms.get('highlights')!.value = value;
+    }
+
+    get highlights(): number {
+        return this.uniforms.get('highlights')!.value;
+    }
+
+    set shadows(value: number) {
+        this.uniforms.get('shadows')!.value = value;
+    }
+
+    get shadows(): number {
+        return this.uniforms.get('shadows')!.value;
     }
 }
