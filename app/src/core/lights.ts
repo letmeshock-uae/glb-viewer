@@ -42,25 +42,9 @@ export class LightsManager {
     }
 
     private addDefaultLights(): void {
-        // Key light - main directional with shadows (warm orange)
-        this.addLight({
-            type: 'directional',
-            name: 'Sun',
-            color: 0xffae00,
-            intensity: 10,
-            position: new THREE.Vector3(100, 200, 100),
-            castShadow: true,
-        });
-
-        // Fill light - secondary directional with teal tint
-        this.addLight({
-            type: 'directional',
-            name: 'Fill',
-            color: 0x7fb6c2,
-            intensity: 8.6,
-            position: new THREE.Vector3(-50, 100, -50),
-            castShadow: true,
-        });
+        // Lights are now intentionally left empty by default.
+        // The procedural environment map (IBL) provides the base lighting for the PBR materials.
+        // Users can add their own directional or spot lights via the UI if needed.
     }
 
     public addLight(config: LightConfig): string {
