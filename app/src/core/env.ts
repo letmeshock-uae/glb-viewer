@@ -16,7 +16,7 @@ export const defaultEnvConfig: EnvConfig = {
     intensity: 1.0,
     rotation: 0.0,
     backgroundMode: 'color',
-    backgroundColor: 0xC8A06B,
+    backgroundColor: 0x1a1a2e,
 };
 
 export interface HDRIPreset {
@@ -52,8 +52,8 @@ export class EnvironmentManager {
         const skyMat = new THREE.ShaderMaterial({
             side: THREE.BackSide,
             uniforms: {
-                topColor: { value: new THREE.Color(0xD9B07A) },
-                bottomColor: { value: new THREE.Color(0xF2DEC2) },
+                topColor: { value: new THREE.Color(0x0077ff) },
+                bottomColor: { value: new THREE.Color(0xffffff) },
                 offset: { value: 33 },
                 exponent: { value: 0.6 }
             },
@@ -81,7 +81,9 @@ export class EnvironmentManager {
         const sky = new THREE.Mesh(skyGeo, skyMat);
         envScene.add(sky);
 
-        // Hemisphere light removed — it distorts warm env map generation
+        // Add hemisphere light to the env scene
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
+        envScene.add(hemiLight);
 
         // Generate environment map from scene
         this.currentEnvMap = this.pmremGenerator.fromScene(envScene).texture;

@@ -62,55 +62,6 @@ class GLBViewer {
 
     this.lightsManager = new LightsManager(this.scene.scene);
 
-    // ── Desert Warm Lighting Preset ────────────────────────────────────
-    // C: reduce env intensity so it doesn't overpower the lights
-    this.envManager.setIntensity(0.25);
-
-    // D: atmospheric haze — essential for soft desert depth
-    this.scene.scene.fog = new THREE.FogExp2(0xC8A06B, 0.0022);
-
-    // B2: Desert sun rig — 3 lights
-    // 1) Key light — directional sun
-    this.lightsManager.addLight({
-      type: 'directional',
-      name: 'Sun',
-      color: 0xFFD2A6,
-      intensity: 3.2,
-      castShadow: true,
-      elevation: 0.95,
-      azimuth: -0.75,
-    });
-
-    // 2) Fill light — warm hemisphere bounce
-    this.lightsManager.addLight({
-      type: 'hemisphere',
-      name: 'Fill',
-      color: 0xE7C79A,
-      intensity: 0.75,
-      groundColor: 0x8A6B3F,
-    });
-
-    // 3) Rim light — backlight, no shadows
-    this.lightsManager.addLight({
-      type: 'directional',
-      name: 'Rim',
-      color: 0xFFF0D8,
-      intensity: 0.7,
-      castShadow: false,
-      elevation: 0.55,
-      azimuth: 2.2,
-    });
-
-    // E: warm post-processing defaults
-    this.renderer.setExposure(1.35);
-    this.renderer.setContrast(0.08);
-    this.renderer.setSaturation(-0.05);
-    this.renderer.setTemperature(0.65);
-    this.renderer.setTint(0.05);
-    this.renderer.setHighlights(1.05);
-    this.renderer.setShadows(1.12);
-    // ───────────────────────────────────────────────────────────────────
-
     // Initialize GUI
     this.gui = new ViewerGUI(
       this.guiContainer,
