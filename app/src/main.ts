@@ -3,6 +3,7 @@ import { ViewerRenderer } from './core/renderer';
 import { ViewerScene } from './core/scene';
 import { ViewerCamera } from './core/camera';
 import { ViewerControls } from './core/controls';
+import { FlyControls } from './core/flyControls';
 import { EnvironmentManager } from './core/env';
 import { LightsManager } from './core/lights';
 import { loadFromFile, type LoadResult } from './loaders/loadAny';
@@ -23,6 +24,9 @@ class GLBViewer {
   private dropzone: Dropzone;
   private filePicker: HTMLInputElement;
   private loadingOverlay: HTMLElement;
+  private flyControls: FlyControls;
+  private flyMode: boolean = false;
+  private flyHud: HTMLElement;
   private animationId: number = 0;
   private currentAnimations: THREE.AnimationClip[] = [];
   private mixer: THREE.AnimationMixer | null = null;
@@ -83,6 +87,23 @@ class GLBViewer {
     // Setup file picker
     this.filePicker = createFilePicker(this.handleFileDrop.bind(this));
     document.body.appendChild(this.filePicker);
+
+    // Initialize fly controls
+    this.flyControls = new FlyControls(
+      this.camera.camera,
+      this.renderer.renderer.domElement
+    );
+
+    // Create fly mode HUD
+    this.flyHud = this.createFlyHud();
+    document.body.appendChild(this.flyHud);
+
+    // F key — toggle fly mode
+    window.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.code === 'KeyF' && !(e.target instanceof HTMLInputElement)) {
+        this.toggleFlyMode();
+      }
+    });
 
     // Handle window resize
     window.addEventListener('resize', this.handleResize.bind(this));
@@ -251,6 +272,53 @@ class GLBViewer {
     this.camera.updateAspect(width, height);
   }
 
+  private createFlyHud(): HTMLElement {
+    const hud = document.createElement('div');
+    hud.id = 'fly-hud';
+    hud.style.cssText = [
+      'position:fixed',
+      'bottom:16px',
+      'left:50%',
+      'transform:translateX(-50%)',
+      'background:rgba(0,0,0,0.55)',
+      'backdrop-filter:blur(8px)',
+      '-webkit-backdrop-filter:blur(8px)',
+      'color:#fff',
+      'font-family:monospace',
+      'font-size:12px',
+      'padding:8px 16px',
+      'border-radius:8px',
+      'pointer-events:none',
+      'opacity:0',
+      'transition:opacity 0.3s ease',
+      'z-index:1000',
+      'white-space:nowrap',
+    ].join(';');
+    hud.innerHTML = '✈ FLY MODE &nbsp;|&nbsp; WASD move &nbsp;·&nbsp; Q↓ E↑ &nbsp;·&nbsp; click+drag to look &nbsp;|&nbsp; <b>F</b> exit';
+    return hud;
+  }
+
+  private toggleFlyMode(): void {
+    this.flyMode = !this.flyMode;
+
+    if (this.flyMode) {
+      // Disable orbit, enable fly
+      this.controls.controls.enabled = false;
+      this.flyControls.enable();
+      this.flyHud.style.opacity = '1';
+    } else {
+      // Restore orbit
+      this.flyControls.disable();
+      this.controls.controls.enabled = true;
+      this.flyHud.style.opacity = '0';
+      // Sync orbit target to where the camera is looking
+      const dir = new THREE.Vector3();
+      this.camera.camera.getWorldDirection(dir);
+      const newTarget = this.camera.camera.position.clone().addScaledVector(dir, 5);
+      this.controls.setTarget(newTarget);
+    }
+  }
+
   private animate(): void {
     this.animationId = requestAnimationFrame(this.animate.bind(this));
 
@@ -261,8 +329,12 @@ class GLBViewer {
       this.mixer.update(delta);
     }
 
-    // Update controls
-    this.controls.update();
+    // Update active controls
+    if (this.flyMode) {
+      this.flyControls.update(delta);
+    } else {
+      this.controls.update();
+    }
 
     // Render
     this.renderer.render(this.scene.scene, this.camera.camera);
@@ -272,9 +344,11 @@ class GLBViewer {
     cancelAnimationFrame(this.animationId);
     this.gui.dispose();
     this.dropzone.dispose();
+    this.flyControls.dispose();
     this.controls.dispose();
     this.envManager.dispose();
     this.renderer.dispose();
+    this.flyHud.remove();
   }
 }
 
