@@ -294,7 +294,7 @@ class GLBViewer {
       'z-index:1000',
       'white-space:nowrap',
     ].join(';');
-    hud.innerHTML = '✈ FLY MODE &nbsp;|&nbsp; WASD move &nbsp;·&nbsp; Q↓ E↑ &nbsp;·&nbsp; click+drag to look &nbsp;|&nbsp; <b>F</b> exit';
+    hud.innerHTML = '✈ FLY MODE &nbsp;|&nbsp; WASD move &nbsp;·&nbsp; Q↓ E↑ &nbsp;·&nbsp; click+drag to look &nbsp;·&nbsp; <b>Shift</b> sprint &nbsp;|&nbsp; <b>F</b> exit';
     return hud;
   }
 
@@ -302,7 +302,14 @@ class GLBViewer {
     this.flyMode = !this.flyMode;
 
     if (this.flyMode) {
-      // Disable orbit, enable fly
+      // Adaptive speed: half the camera-to-orbit-target distance, clamped.
+      // This makes the fly speed feel natural regardless of scene scale.
+      const camPos = this.camera.camera.position;
+      const orbitTarget = this.controls.controls.target;
+      const dist = camPos.distanceTo(orbitTarget);
+      const adaptedSpeed = Math.max(5, Math.min(dist * 0.5, 2000));
+      this.flyControls.setMoveSpeed(adaptedSpeed);
+
       this.controls.controls.enabled = false;
       this.flyControls.enable();
       this.flyHud.style.opacity = '1';
@@ -311,10 +318,12 @@ class GLBViewer {
       this.flyControls.disable();
       this.controls.controls.enabled = true;
       this.flyHud.style.opacity = '0';
-      // Sync orbit target to where the camera is looking
+      // Re-sync orbit target: place it ~dist ahead of the camera
       const dir = new THREE.Vector3();
       this.camera.camera.getWorldDirection(dir);
-      const newTarget = this.camera.camera.position.clone().addScaledVector(dir, 5);
+      const orbitTarget = this.controls.controls.target;
+      const dist = this.camera.camera.position.distanceTo(orbitTarget);
+      const newTarget = this.camera.camera.position.clone().addScaledVector(dir, Math.max(dist, 1));
       this.controls.setTarget(newTarget);
     }
   }

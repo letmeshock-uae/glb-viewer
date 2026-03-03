@@ -137,14 +137,22 @@ export class FlyControls {
     public update(delta: number): void {
         if (!this._enabled) return;
 
-        const speed = this.config.moveSpeed * delta;
+        // Shift = 5× speed burst
+        const shiftHeld = this.keys['ShiftLeft'] || this.keys['ShiftRight'];
+        const speed = this.config.moveSpeed * delta * (shiftHeld ? 5 : 1);
 
-        // Get camera local axes
+        // True 6-DOF forward — fly exactly where the camera points
         this.camera.getWorldDirection(this._forward);
-        this._forward.y = 0; // keep horizontal movement flat
-        this._forward.normalize();
+        if (this._forward.lengthSq() < 1e-10) return; // safety: degenerate state
 
-        this._right.crossVectors(this._forward, new THREE.Vector3(0, 1, 0)).normalize();
+        // Right axis = forward × up
+        this._right.crossVectors(this._forward, new THREE.Vector3(0, 1, 0));
+        if (this._right.lengthSq() < 1e-10) {
+            // Camera looks straight up/down — use world X as fallback right
+            this._right.set(1, 0, 0);
+        } else {
+            this._right.normalize();
+        }
 
         this._moveDir.set(0, 0, 0);
 
@@ -160,6 +168,7 @@ export class FlyControls {
         if (this.keys['KeyA'] || this.keys['ArrowLeft']) {
             this._moveDir.addScaledVector(this._right, -1);
         }
+        // Q/E — explicit world-up/down regardless of look direction
         if (this.keys['KeyE']) {
             this._moveDir.y += 1;
         }
@@ -170,6 +179,8 @@ export class FlyControls {
         if (this._moveDir.lengthSq() > 0) {
             this._moveDir.normalize();
             this.camera.position.addScaledVector(this._moveDir, speed);
+            // Make sure Three.js picks up the position change
+            this.camera.updateMatrixWorld();
         }
     }
 
